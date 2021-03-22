@@ -18,7 +18,7 @@ gc(full= TRUE)
 #DATA LOADING:
 
 trainset<-"/train.csv"
-newset<-"/test.student.csv"
+newset<-"/test.csv"
 
 base.set<-read.csv(trainset)
 new.set<-read.csv(newset)

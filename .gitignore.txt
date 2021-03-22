@@ -1,0 +1,3 @@
+#Pliki z danymi
+test.csv
+train.csv
