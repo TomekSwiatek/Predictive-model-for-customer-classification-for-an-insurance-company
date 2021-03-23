@@ -1,30 +1,17 @@
 
-#LOADING LIBRARIES
-library(party)
-library(rpart)
-library(randomForest)
-library(RColorBrewer)
-library(mgcv)
-library(ROCR)
-library(Ecdat)
-
-library(nnet)
-library(randomForest)
-
 #REMOVE ALL OBJECTS AND CLEAN WORKING ENVIRONMENT:
 rm(list=ls())
 gc(full= TRUE)
 
 #DATA LOADING:
-
 trainset<-"train.csv"
 newset<-"test.csv"
 
 base.set<-read.csv(trainset)
 new.set<-read.csv(newset)
 
-#DATA INSPECTION AND TRANSFORMATION:
 
+#DATA INSPECTION AND TRANSFORMATION:
 str(base.set)
 str(new.set)
 
@@ -50,7 +37,6 @@ table(base.set$Sex)
 table(base.set$CarBrand)
 table(base.set$CarType)
 table(base.set$Accidents)
-
 
 table(base.set$NextAccident) #the customer caused the damage, target variable
 
@@ -112,20 +98,28 @@ summary(base.set$CarEngine)
 
 #base.set<-base.set[-1:-2]
 #base.set<-base.set[-8:-9]
-#base.set<-base.set[-6]
+# base.set<-base.set[-6]
 
+#+++DATA TRANSFORMATIONS
 
-# #+++DATA TRANSFORMATIONS
- # data.set<-base.set
- # colMeans(data.set$CarValue) #srednia wartosc
- # sapply(data.set$CarValue,sd) #odchylenie standardowe
- # scaled.data<-scale(data.set[-ncol(data.set)]) #standaryzacja zmiennych bez zmiennej objaœnianej
- # base.set<-cbind(scaled.data,data.set[ncol(data.set)])
- # dim(base.set)
+# # for (j in 1:ncol(base.set)) {
+# #   base.set[is.na(base.set[,j]),j]<-mean(base.set[,j],na.rm=TRUE)
+# # } #imputacja danych, uzupelnienie brakow srednimi wartosciami
+# SCALED_DATA_SET<-scale(base.set);SCALED_DATA_SET
+# rows.to.erase<-c()
+# for (i in 1:nrow(base.set)) {
+#   if (any(abs(SCALED_DATA_SET[i,])>6)) {
+#     rows.to.erase<-c(rows.to.erase,i)
+#   }
+
+# } #determination of outliers
+
+# FINAL_DATA<-data.frame(SCALED_DATA_SET[-rows.to.erase,]);FINAL_DATA #usuniecie wartosci odstajacych
+# base.set<-FINAL_DATA
 
 #####################################
 
-#DATA SET SPLIT ON TRAINING AND TESTING (1 option):
+#DATA SET SPLIT ON TRAINING AND TESTING:
 SplitDataSet<-function(data.set,training.fraction) {
   random.numbers<-sample.int(nrow(data.set))
   quantiles<-quantile(random.numbers,probs=c(0,training.fraction,1))
@@ -136,65 +130,26 @@ split.dataset<-SplitDataSet(base.set,0.6)
 train.set<-split.dataset$train
 test.set<-split.dataset$test
 
-#MODEL
+#BULDING MODEL:
 #BirthYear+Sex+LicenseYear+CarBrand+CarType+CarYear+CarEngine+EngineCap+CarValue+AssistanceYears+Accidents
 #LicenseYear+CarBrand+CarEngine+EngineCap+CarValue
 
 #->lm
- # model<-lm(NextAccident~LicenseYear+CarBrand+CarEngine+EngineCap+CarValue,data=train.set)
+ # model<-lm(NextAccident~CarBrand+CarEngine+EngineCap+CarValue,data=train.set)
 
 
-#+++++++++++++++++++++++#
+############################
+#MODEL
+#->glm
+model.badany <- glm(NextAccident~LicenseYear+CarBrand+CarEngine+EngineCap+CarValue, family=binomial, data=train.set)
+model<-step(model.badany,k=log(nrow(train.set)),trace=1)
 
-#->NNET MODEL
-
-# RENAMING OF DATASET FOR NNET MODEL
- ttrain.set<-train.set
- valid.set<-test.set
-
-# #DATA SET SPLIT ON TRAINING AND TESTING (2 option):
-# training.set.fraction<-0.5
-# training.set.index<-(runif(nrow(train.set))<training.set.fraction)
-# table(training.set.index)
-# ttrain.set<-train.set[training.set.index,]
-# valid.set<-train.set[!training.set.index,]
-# nrow(ttrain.set)
-# nrow(valid.set)
-
-
-# DEFINITION AND IMPLEMENTATION OD NEURAL NETWORK MODELS
-
-neurons<-5 #number of neurons in the hidden layer
-decays<-seq(0,40,length=100) #weight parameter for penalty / regularization factor
-wts.parameter<-2*runif(5*21+neurons+1)-1 #initial weight values for the network
-train.error<-valid.error<-numeric(length(decays)) #error objects for the test and validation set, respectively
-neural.nets<-list()
-progress.bar<-winProgressBar("Progress in %","0% done",0,1,0)
-
-for (d in 1:length(decays)) {
-  neural.nets[[d]]<-nnet(NextAccident ~ .,data=ttrain.set,size=neurons,decay=decays[d],linout=T,maxit=10000,trace=FALSE,Wts=wts.parameter)
-  train.error[d]<-mean(neural.nets[[d]]$residuals^2)
-  prediction<-predict(neural.nets[[d]],newdata=valid.set)
-  valid.error[d]<-mean((prediction-valid.set$NextAccident)^2)
-  percentage<-d/length(decays)
-  setWinProgressBar(progress.bar,percentage,"Progress in %",sprintf("%d%% done",round(100*percentage)))
-}
-close(progress.bar)
-
-## CHOOSING THE BEST NEURAL NETWORK MODEL
-model <-neural.nets[[which.min(valid.error)]]
-
-
-#NEURAL NETWORK STRUCTURE
-names(model)
-model$n #structure
-model$wts #weights in individual neurons
-summary(model)
 
 ############################
 
+
 summary(model)
-#summary(model$fitted.values)
+summary(model$fitted.values)
 
 #CUT-OFF POINT OPTIMISATION:
 test.response<-c()
@@ -202,36 +157,36 @@ CutOff<-seq(from=0.0,to=1,by=0.02)
 incorrect.error<-c()
 income<-c()
 for(i in 1:length(CutOff)) {
-  pred.train<-predict(model,newdata=train.set)
-  pred.train<-as.integer(pred.train>=CutOff[i])
+  pred.train<-as.integer(model$fitted.values>=CutOff[i])
   incorrect.error[i]<-sum(abs(pred.train-train.set$NextAccident))/length(train.set$NextAccident)
   income[i]<-length(which(pred.train==0))*1100-length(which((pred.train-train.set$NextAccident)==-1))*5500
 }
+
 #CHART OF CLASSIFICATION ERROR
-#plot(CutOff,incorrect.error,type="l")
+plot(CutOff,incorrect.error,type="l")
 MinCutOff.Inc<-which.min(incorrect.error)
 points(CutOff[MinCutOff.Inc],incorrect.error[MinCutOff.Inc],col="red",cex=2)
 CutOff[MinCutOff.Inc]
 
 #CHART OF REVENUE
-#barplot(income)
+barplot(income)
 MinCutOff.Income<-which.max(income)
 CutOff[MinCutOff.Income]
 points(MinCutOff.Income,income[MinCutOff.Income],col="red",cex=2)
 
 #TEST ON TEST SET:
-pred.test<-predict(model,newdata=test.set)
+pred.test<-predict(model,newdata=test.set,type="response")
 resp.test<-as.integer(pred.test>=CutOff[MinCutOff.Income])
 incorrect.test<-sum(abs(resp.test-test.set$NextAccident))/length(test.set$NextAccident)
 income.test<-length(which(resp.test==0))*1100-length(which((resp.test-test.set$NextAccident)==-1))*5500
 income.test
 
 #DECISION MAKING (FINAL DECISION ON CUT-OFF):
-pred.new.set<-predict(model,newdata=new.set)
+pred.new.set<-predict(model,newdata=new.set,type="response")
 resp.test<-as.integer(pred.new.set>=CutOff[MinCutOff.Income])
 income.test<-length(which(resp.test==0))*1100-length(which((resp.test-new.set$NextAccident)==-1))*5500
 income.test
 
 #SAVING OUTCOME:
-write.csv(resp.test,"RESULTS_OF_NNET_MODEL.csv",row.names=FALSE,quote=FALSE)
+write.csv(resp.test,"RESULTS_OF_GLM_MODEL.csv",row.names=FALSE,quote=FALSE)
 
