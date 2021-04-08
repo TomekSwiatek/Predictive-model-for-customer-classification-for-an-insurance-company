@@ -1,4 +1,4 @@
-#GLM Model
+#TREE Model
 library(party)
 library(rpart)
 library(randomForest)
