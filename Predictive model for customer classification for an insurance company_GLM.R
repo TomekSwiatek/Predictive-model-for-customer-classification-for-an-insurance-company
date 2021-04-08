@@ -99,7 +99,6 @@ summary(base.set$CarEngine)
 
 #base.set<-base.set[-1:-2]
 #base.set<-base.set[-8:-9]
-# base.set<-base.set[-6]
 
 #+++DATA TRANSFORMATIONS
 
