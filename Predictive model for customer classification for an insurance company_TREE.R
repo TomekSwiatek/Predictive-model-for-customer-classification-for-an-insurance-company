@@ -1,4 +1,7 @@
-#GLM MOdel
+#GLM Model
+library(party)
+library(rpart)
+library(randomForest)
 
 #REMOVE ALL OBJECTS AND CLEAN WORKING ENVIRONMENT:
 rm(list=ls())
@@ -99,24 +102,6 @@ summary(base.set$CarEngine)
 
 #base.set<-base.set[-1:-2]
 #base.set<-base.set[-8:-9]
-# base.set<-base.set[-6]
-
-#+++DATA TRANSFORMATIONS
-
-# # for (j in 1:ncol(base.set)) {
-# #   base.set[is.na(base.set[,j]),j]<-mean(base.set[,j],na.rm=TRUE)
-# # } #imputacja danych, uzupelnienie brakow srednimi wartosciami
-# SCALED_DATA_SET<-scale(base.set);SCALED_DATA_SET
-# rows.to.erase<-c()
-# for (i in 1:nrow(base.set)) {
-#   if (any(abs(SCALED_DATA_SET[i,])>6)) {
-#     rows.to.erase<-c(rows.to.erase,i)
-#   }
-
-# } #determination of outliers
-
-# FINAL_DATA<-data.frame(SCALED_DATA_SET[-rows.to.erase,]);FINAL_DATA #usuniecie wartosci odstajacych
-# base.set<-FINAL_DATA
 
 #####################################
 
@@ -141,9 +126,10 @@ test.set<-split.dataset$test
 
 ############################
 #MODEL
-#->glm
-model.badany <- glm(NextAccident~LicenseYear+CarBrand+CarEngine+EngineCap+CarValue, family=binomial, data=train.set)
-model<-step(model.badany,k=log(nrow(train.set)),trace=1)
+#->cTree
+model <-ctree(NextAccident~CarBrand+CarEngine+EngineCap+CarValue,data=train.set,controls=ctree_control(mincriterion=0.95,minsplit=20))
+plot(model,tnex=2,type="extended")
+devAskNewPage(ask = TRUE)
 
 
 ############################
@@ -162,6 +148,7 @@ for(i in 1:length(CutOff)) {
   incorrect.error[i]<-sum(abs(pred.train-train.set$NextAccident))/length(train.set$NextAccident)
   income[i]<-length(which(pred.train==0))*1100-length(which((pred.train-train.set$NextAccident)==-1))*5500
 }
+
 
 #CHART OF CLASSIFICATION ERROR
 plot(CutOff,incorrect.error,type="l")
@@ -189,5 +176,5 @@ income.test<-length(which(resp.test==0))*1100-length(which((resp.test-new.set$Ne
 income.test
 
 #SAVING OUTCOME:
-write.csv(resp.test,"RESULTS_OF_GLM_MODEL.csv",row.names=FALSE,quote=FALSE)
+write.csv(resp.test,"RESULTS_OF_TREE_MODEL.csv",row.names=FALSE,quote=FALSE)
 
